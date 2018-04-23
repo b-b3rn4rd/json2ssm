@@ -1,0 +1,13 @@
+{
+  "users": [
+    {
+      "name": "keith",
+      "surname": "stubby",
+      "age": 13,
+      "interests": ["utes", "dogs", "fishing"],
+      "enabled": true,
+      "height": 175.6,
+      "locations": {"home": "44 crellin", "work": "145 russel"}
+    }
+  ]
+}
