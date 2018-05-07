@@ -3,8 +3,6 @@ package storage
 import (
 	"sync"
 
-	"context"
-
 	"fmt"
 
 	"strings"
@@ -13,7 +11,9 @@ import (
 
 	"strconv"
 
-	"encoding/json"
+	"sync/atomic"
+
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ssm"
@@ -21,27 +21,30 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Importer interface {
-	Import(map[string]string, bool) error
+type Storage interface {
+	Import(map[string]interface{}) (int16, error)
+	Export(string) (interface{}, error)
+	Delete(map[string]interface{}) (int16, error)
 }
 
-type Storage struct {
+type SSMStorage struct {
 	svc    ssmiface.SSMAPI
 	logger *logrus.Logger
 }
 
-func New(svc ssmiface.SSMAPI, logger *logrus.Logger) *Storage {
-	return &Storage{
+func New(svc ssmiface.SSMAPI, logger *logrus.Logger) *SSMStorage {
+	return &SSMStorage{
 		svc:    svc,
 		logger: logger,
 	}
 }
 
-func (s *Storage) Export(path string) (map[string]interface{}, error) {
+func (s *SSMStorage) Export(path string) (interface{}, error) {
 	values := map[string]interface{}{}
 	s.logger.WithField("path", path).Debug("get parameters by path")
 
 	var wg sync.WaitGroup
+	var i uint32
 
 	err := s.svc.GetParametersByPathPages(&ssm.GetParametersByPathInput{
 		Path:      aws.String(path),
@@ -49,6 +52,13 @@ func (s *Storage) Export(path string) (map[string]interface{}, error) {
 	}, func(page *ssm.GetParametersByPathOutput, lastPage bool) bool {
 		for _, p := range page.Parameters {
 			wg.Add(1)
+
+			if i%10 == 0 && i > 0 {
+				s.logger.Debug("sleep for a 15 seconds")
+				time.Sleep(15 * time.Second)
+			}
+
+			i++
 			go func(name string, value string) {
 				defer wg.Done()
 
@@ -58,7 +68,7 @@ func (s *Storage) Export(path string) (map[string]interface{}, error) {
 					ResourceId:   aws.String(name),
 				})
 				if err != nil {
-					s.logger.WithField("name", name).Debug("can't get parameter type use string")
+					s.logger.WithField("name", name).WithError(err).Debug("can't get parameter type use string")
 					values[name] = value
 				}
 
@@ -86,6 +96,7 @@ func (s *Storage) Export(path string) (map[string]interface{}, error) {
 				}
 
 			}(aws.StringValue(p.Name), aws.StringValue(p.Value))
+
 			values[aws.StringValue(p.Name)] = values
 		}
 
@@ -96,94 +107,146 @@ func (s *Storage) Export(path string) (map[string]interface{}, error) {
 	}
 
 	wg.Wait()
-	s.unflattern(values)
-	return nil, nil
-}
 
-//func (s *Storage) unflatternSlice(tr interface{}, tk string) []interface{} {
-//	trnew, ok := tr[tk]
-//	if !ok {
-//		trnew = make([]interface{}, 0)
-//
-//		tr[tk] = trnew
-//	}
-//
-//	return trnew.([]interface{})
-//}
-//
-//func (s *Storage) unflatternMap(tr interface{}, tk string) map[string]interface{} {
-//	trnew, ok := tr[tk]
-//	if !ok {
-//		trnew = make(map[string]interface{})
-//		tr[tk] = trnew
-//	}
-//
-//	return trnew.(map[string]interface{})
-//}
+	tree := make(map[string]interface{})
 
-func (s *Storage) unflattern(v map[string]interface{}) (map[string]interface{}, error) {
-	var tree interface{}
-	for k, v := range v {
-		ks := strings.Split(strings.TrimLeft(k, "/"), "/")
-		tr := tree
-		for i, tk := range ks[:len(ks)-1] {
-			var trnew interface{}
-			ok := true
-			// check if tk is numeric
-			if _, err := strconv.Atoi(tk); err != nil {
-				s.logger.WithField("key", tk).Debug("is not interger")
-				if _, ok = tr.(map[string]interface{}); !ok {
-					s.logger.WithField("key", tk).Debug("tr is empty")
-					tr = map[string]interface{}{}
-				}
-				trnew, ok = tr.(map[string]interface{})[tk]
-			}
-
-			if !ok {
-				trnew = make(map[string]interface{})
-
-				if len(ks) > i+1 {
-					if _, err := strconv.Atoi(ks[i+1]); err == nil {
-						trnew = make([]interface{}, 0)
-					}
-				}
-
-				tr.(map[string]interface{})[tk] = trnew
-			}
-
-			tr = trnew
-		}
-		switch tr.(type) {
-		case map[string]interface{}:
-			tr.(map[string]interface{})[ks[len(ks)-1]] = v
-		case []interface{}:
-			tr = append(tr.([]interface{}), v)
-		}
-
+	for k, v := range values {
+		tree[strings.TrimPrefix(k, path)] = v
 	}
-	fmt.Println(tree)
-	raw, _ := json.MarshalIndent(tree, "", " ")
-	fmt.Print(string(raw))
-	return nil, nil
+
+	return s.unflattern(tree)
 }
 
-func (s *Storage) Import(values map[string]interface{}, stopOnError bool) error {
+func (s *SSMStorage) unflattern(params map[string]interface{}) (interface{}, error) {
+	var mergeMaps func(m1 interface{}, m2 interface{}) interface{}
+	mergeMaps = func(m1 interface{}, m2 interface{}) interface{} {
+
+		switch m2 := m2.(type) {
+		case string:
+			return m2
+		case float64:
+			return m2
+		case nil:
+			return m2
+		case []interface{}:
+			m1, _ := m1.([]interface{})
+			for i2, v2 := range m2 {
+				if v2 == nil {
+					continue
+				}
+				for {
+					if len(m1) >= (i2 + 1) {
+						break
+					}
+					m1 = append(m1, "")
+				}
+				m1[i2] = mergeMaps(m1[i2], v2)
+
+			}
+			return m1
+		case map[string]interface{}:
+
+			m1, ok := m1.(map[string]interface{})
+			if !ok {
+
+				return m2
+			}
+			for k2, v2 := range m2 {
+				if v1, ok := m1[k2]; ok {
+
+					m1[k2] = mergeMaps(v1, v2)
+
+				} else {
+					m1[k2] = v2
+				}
+			}
+		}
+
+		return m1
+	}
+
+	var tree interface{}
+
+	for k, v := range params {
+		ks := strings.Split(strings.TrimPrefix(k, "/"), "/")
+		ks_r := make([]string, len(ks))
+		for ksi, ksv := range ks {
+			ks_r[len(ks)-(ksi+1)] = ksv
+		}
+
+		for _, kv := range ks_r {
+			if ik, err := strconv.Atoi(kv); err == nil {
+
+				tmp := make([]interface{}, (ik + 1))
+				tmp[ik] = v
+				v = tmp
+				continue
+			}
+			v = map[string]interface{}{kv: v}
+		}
+		tree = mergeMaps(tree, v)
+	}
+
+	return tree, nil
+}
+
+func (s *SSMStorage) Delete(values map[string]interface{}) (int16, error) {
 	var wg sync.WaitGroup
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	var delParamError error
+	var total int16
+	for k, _ := range values {
+		wg.Add(1)
+		go func(k string) {
+			defer wg.Done()
+
+			k = fmt.Sprintf("/%s", k)
+			s.logger.WithField("name", k).Debug("deleting ssm parameter")
+
+			_, err := s.svc.DeleteParameter(&ssm.DeleteParameterInput{
+				Name: aws.String(k),
+			})
+			if err != nil {
+				delParamError = err
+			}
+
+			total++
+
+			s.logger.WithField("name", k).Debug("deleting metadata for ssm parameter")
+
+			s.svc.RemoveTagsFromResource(&ssm.RemoveTagsFromResourceInput{
+				ResourceId: aws.String(k),
+			})
+
+		}(k)
+	}
+	wg.Wait()
+
+	return total, delParamError
+}
+
+func (s *SSMStorage) Import(values map[string]interface{}) (uint32, error) {
+	var wg sync.WaitGroup
+	var total uint32
 	var putParamError error
+
+	var i uint32
+
 	for k, v := range values {
 		wg.Add(1)
+
+		if i%10 == 0 && i > 0 {
+			s.logger.Debug("sleep for a minute")
+			time.Sleep(15 * time.Second)
+		}
+
+		i++
+
 		go func(k string, v interface{}) {
 			defer wg.Done()
 			k = fmt.Sprintf("/%s", k)
 			s.logger.WithField("name", k).Debug("putting ssm parameter")
 
-			if putParamError != nil && stopOnError {
-				s.logger.WithField("name", k).Debug("skipping set parameter, error occurred before")
-				return
-			}
-			_, err := s.svc.PutParameterWithContext(ctx, &ssm.PutParameterInput{
+			_, err := s.svc.PutParameter(&ssm.PutParameterInput{
 				Name:      aws.String(k),
 				Value:     aws.String(fmt.Sprint(v)),
 				Type:      aws.String(ssm.ParameterTypeString),
@@ -191,8 +254,12 @@ func (s *Storage) Import(values map[string]interface{}, stopOnError bool) error 
 			})
 			if err != nil {
 				putParamError = err
+				return
 			}
-			_, err = s.svc.AddTagsToResourceWithContext(ctx, &ssm.AddTagsToResourceInput{
+
+			atomic.AddUint32(&total, 1)
+
+			_, err = s.svc.AddTagsToResource(&ssm.AddTagsToResourceInput{
 				ResourceId:   aws.String(k),
 				ResourceType: aws.String(ssm.ResourceTypeForTaggingParameter),
 				Tags: []*ssm.Tag{&ssm.Tag{
@@ -209,5 +276,5 @@ func (s *Storage) Import(values map[string]interface{}, stopOnError bool) error 
 
 	wg.Wait()
 
-	return putParamError
+	return atomic.LoadUint32(&total), putParamError
 }
