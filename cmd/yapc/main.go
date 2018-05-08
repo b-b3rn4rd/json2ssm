@@ -62,7 +62,7 @@ func main() {
 			logger.WithError(err).Fatal("error while deleting")
 		}
 
-		fmt.Fprintf(writer, "Delete has successfully finished, %d parameters have been removed from SSM parameter store", total)
+		fmt.Fprintf(writer, "Deletion has successfully finished, %d parameters have been removed from SSM parameter store. \n", total)
 
 	case "get-json":
 		values, err := strg.Export(*getPath)
@@ -90,6 +90,6 @@ func main() {
 			logrus.WithError(err).Fatal("error while importing")
 		}
 
-		fmt.Fprintf(writer, "Import has successfully finished, %d parameters have been (over)written to SSM parameter store", total)
+		fmt.Fprintf(writer, "Import has successfully finished, %d parameters have been (over)written to SSM parameter store. \n", total)
 	}
 }

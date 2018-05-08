@@ -11,14 +11,15 @@ import (
 
 	"strconv"
 
-	"sync/atomic"
-
 	"time"
+
+	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/cheggaaa/pb.v1"
 )
 
 type Storage interface {
@@ -46,27 +47,36 @@ func (s *SSMStorage) Export(path string) (interface{}, error) {
 	var wg sync.WaitGroup
 	var i uint32
 
+	bar := pb.StartNew(0)
+	bar.Output = os.Stderr
+
 	err := s.svc.GetParametersByPathPages(&ssm.GetParametersByPathInput{
 		Path:      aws.String(path),
 		Recursive: aws.Bool(true),
 	}, func(page *ssm.GetParametersByPathOutput, lastPage bool) bool {
+		bar.SetTotal(int(bar.Total) + len(page.Parameters))
+
 		for _, p := range page.Parameters {
 			wg.Add(1)
 
-			if i%10 == 0 && i > 0 {
+			if i%20 == 0 && i > 0 {
 				s.logger.Debug("sleep for a 15 seconds")
 				time.Sleep(15 * time.Second)
 			}
 
 			i++
 			go func(name string, value string) {
-				defer wg.Done()
+				defer func() {
+					bar.Increment()
+					wg.Done()
+				}()
 
 				s.logger.WithField("name", name).Debug("getting parameter type")
 				resp, err := s.svc.ListTagsForResource(&ssm.ListTagsForResourceInput{
 					ResourceType: aws.String(ssm.ResourceTypeForTaggingParameter),
 					ResourceId:   aws.String(name),
 				})
+
 				if err != nil {
 					s.logger.WithField("name", name).WithError(err).Debug("can't get parameter type use string")
 					values[name] = value
@@ -190,14 +200,30 @@ func (s *SSMStorage) unflattern(params map[string]interface{}) (interface{}, err
 	return tree, nil
 }
 
-func (s *SSMStorage) Delete(values map[string]interface{}) (int16, error) {
+func (s *SSMStorage) Delete(values map[string]interface{}) (int, error) {
 	var wg sync.WaitGroup
 	var delParamError error
-	var total int16
+	var i uint32
+
+	total := len(values)
+	bar := pb.StartNew(total)
+	bar.Output = os.Stderr
+
 	for k, _ := range values {
 		wg.Add(1)
+
+		if i%20 == 0 && i > 0 {
+			s.logger.Debug("sleep for a 15 seconds")
+			time.Sleep(15 * time.Second)
+		}
+
+		i++
+
 		go func(k string) {
-			defer wg.Done()
+			defer func() {
+				bar.Increment()
+				wg.Done()
+			}()
 
 			k = fmt.Sprintf("/%s", k)
 			s.logger.WithField("name", k).Debug("deleting ssm parameter")
@@ -208,8 +234,6 @@ func (s *SSMStorage) Delete(values map[string]interface{}) (int16, error) {
 			if err != nil {
 				delParamError = err
 			}
-
-			total++
 
 			s.logger.WithField("name", k).Debug("deleting metadata for ssm parameter")
 
@@ -224,12 +248,15 @@ func (s *SSMStorage) Delete(values map[string]interface{}) (int16, error) {
 	return total, delParamError
 }
 
-func (s *SSMStorage) Import(values map[string]interface{}) (uint32, error) {
+func (s *SSMStorage) Import(values map[string]interface{}) (int, error) {
 	var wg sync.WaitGroup
-	var total uint32
 	var putParamError error
-
 	var i uint32
+
+	total := len(values)
+
+	bar := pb.StartNew(total)
+	bar.Output = os.Stderr
 
 	for k, v := range values {
 		wg.Add(1)
@@ -242,7 +269,10 @@ func (s *SSMStorage) Import(values map[string]interface{}) (uint32, error) {
 		i++
 
 		go func(k string, v interface{}) {
-			defer wg.Done()
+			defer func() {
+				bar.Increment()
+				wg.Done()
+			}()
 			k = fmt.Sprintf("/%s", k)
 			s.logger.WithField("name", k).Debug("putting ssm parameter")
 
@@ -256,8 +286,6 @@ func (s *SSMStorage) Import(values map[string]interface{}) (uint32, error) {
 				putParamError = err
 				return
 			}
-
-			atomic.AddUint32(&total, 1)
 
 			_, err = s.svc.AddTagsToResource(&ssm.AddTagsToResourceInput{
 				ResourceId:   aws.String(k),
@@ -276,5 +304,5 @@ func (s *SSMStorage) Import(values map[string]interface{}) (uint32, error) {
 
 	wg.Wait()
 
-	return atomic.LoadUint32(&total), putParamError
+	return total, putParamError
 }
