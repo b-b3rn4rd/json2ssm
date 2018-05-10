@@ -1,0 +1,11 @@
+{
+  "name": "bernard",
+  "address": {
+    "city": "melbourne",
+    "code": 3000,
+    "address": {
+      "street": "flinders",
+      "number": 1
+    }
+  }
+}
