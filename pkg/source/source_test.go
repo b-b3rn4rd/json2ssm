@@ -6,7 +6,7 @@ import (
 
 	"os"
 
-	"github.com/b-b3rn4rd/yapc/pkg/source"
+	"github.com/b-b3rn4rd/json2ssm/pkg/source"
 	"github.com/stretchr/testify/assert"
 )
 

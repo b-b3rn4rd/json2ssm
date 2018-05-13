@@ -31,12 +31,14 @@ type Storage interface {
 type SSMStorage struct {
 	svc    ssmiface.SSMAPI
 	logger *logrus.Logger
+	sleep  int
 }
 
 func New(svc ssmiface.SSMAPI, logger *logrus.Logger) *SSMStorage {
 	return &SSMStorage{
 		svc:    svc,
 		logger: logger,
+		sleep:  10,
 	}
 }
 
@@ -47,8 +49,9 @@ func (s *SSMStorage) Export(path string) (interface{}, error) {
 	var wg sync.WaitGroup
 	var i uint32
 
-	bar := pb.StartNew(0)
+	bar := pb.New(0)
 	bar.Output = os.Stderr
+	bar.Start()
 
 	err := s.svc.GetParametersByPathPages(&ssm.GetParametersByPathInput{
 		Path:      aws.String(path),
@@ -60,8 +63,8 @@ func (s *SSMStorage) Export(path string) (interface{}, error) {
 			wg.Add(1)
 
 			if i%20 == 0 && i > 0 {
-				s.logger.Debug("sleep for a 15 seconds")
-				time.Sleep(15 * time.Second)
+				s.logger.Debugf("sleep for a %d seconds", s.sleep)
+				time.Sleep(time.Duration(s.sleep) * time.Second)
 			}
 
 			i++
@@ -106,8 +109,6 @@ func (s *SSMStorage) Export(path string) (interface{}, error) {
 				}
 
 			}(aws.StringValue(p.Name), aws.StringValue(p.Value))
-
-			values[aws.StringValue(p.Name)] = values
 		}
 
 		return !lastPage
@@ -117,6 +118,7 @@ func (s *SSMStorage) Export(path string) (interface{}, error) {
 	}
 
 	wg.Wait()
+	bar.Finish()
 
 	tree := make(map[string]interface{})
 
@@ -206,15 +208,16 @@ func (s *SSMStorage) Delete(values map[string]interface{}) (int, error) {
 	var i uint32
 
 	total := len(values)
-	bar := pb.StartNew(total)
+	bar := pb.New(total)
 	bar.Output = os.Stderr
+	bar.Start()
 
 	for k, _ := range values {
 		wg.Add(1)
 
 		if i%20 == 0 && i > 0 {
-			s.logger.Debug("sleep for a 15 seconds")
-			time.Sleep(15 * time.Second)
+			s.logger.Debugf("sleep for a %d seconds", s.sleep)
+			time.Sleep(time.Duration(s.sleep) * time.Second)
 		}
 
 		i++
@@ -243,7 +246,9 @@ func (s *SSMStorage) Delete(values map[string]interface{}) (int, error) {
 
 		}(k)
 	}
+
 	wg.Wait()
+	bar.Finish()
 
 	return total, delParamError
 }
@@ -262,8 +267,8 @@ func (s *SSMStorage) Import(values map[string]interface{}) (int, error) {
 		wg.Add(1)
 
 		if i%10 == 0 && i > 0 {
-			s.logger.Debug("sleep for a minute")
-			time.Sleep(15 * time.Second)
+			s.logger.Debugf("sleep for a %d seconds", s.sleep)
+			time.Sleep(time.Duration(s.sleep) * time.Second)
 		}
 
 		i++
@@ -303,6 +308,7 @@ func (s *SSMStorage) Import(values map[string]interface{}) (int, error) {
 	}
 
 	wg.Wait()
+	bar.Finish()
 
 	return total, putParamError
 }
