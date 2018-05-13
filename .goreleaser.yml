@@ -1,0 +1,14 @@
+build:
+  main: ./cmd/json2ssm
+  binary: json2ssm
+  goos:
+    - darwin
+    - linux
+    - windows
+  goarch:
+    - amd64
+brew:
+  github:
+    owner: b-b3rn4rd
+    name: homebrew-tap
+  folder: Formula
