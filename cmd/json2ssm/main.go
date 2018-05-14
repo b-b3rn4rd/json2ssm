@@ -15,12 +15,12 @@ import (
 )
 
 var (
-	putJson     = kingpin.Command("put-json", "Creates SSM parameters from the specified JSON file.")
-	getJson     = kingpin.Command("get-json", "Retrieves JSON document from SSM parameter store using given path (prefix).")
-	delJson     = kingpin.Command("del-json", "Deletes parameters from SSM parameter store based on the specified JSON file.")
-	getPath     = getJson.Flag("path", "SSM parameter store path (prefix)").Required().String()
-	putJsonFile = putJson.Flag("json-file", "The path where your JSON file is located.").Required().ExistingFile()
-	delJsonFile = delJson.Flag("json-file", "The path where your JSON file is located.").Required().ExistingFile()
+	putJSON     = kingpin.Command("put-json", "Creates SSM parameters from the specified JSON file.")
+	getJSON     = kingpin.Command("get-json", "Retrieves JSON document from SSM parameter store using given path (prefix).")
+	delJSON     = kingpin.Command("del-json", "Deletes parameters from SSM parameter store based on the specified JSON file.")
+	getPath     = getJSON.Flag("path", "SSM parameter store path (prefix)").Required().String()
+	putJSONFile = putJSON.Flag("json-file", "The path where your JSON file is located.").Required().ExistingFile()
+	delJSONFile = delJSON.Flag("json-file", "The path where your JSON file is located.").Required().ExistingFile()
 	version     = "master"
 	debug       = kingpin.Flag("debug", "Enable debug logging.").Short('d').Bool()
 	logger      = logrus.New()
@@ -47,8 +47,8 @@ func main() {
 	switch cmd {
 
 	case "del-json":
-		j := source.SourceJSON{}
-		r, err := os.Open(*delJsonFile)
+		j := source.JSON{}
+		r, err := os.Open(*delJSONFile)
 		if err != nil {
 			logrus.WithError(err).Fatal("error while opening file")
 		}
@@ -75,8 +75,8 @@ func main() {
 		fmt.Fprint(writer, string(raw))
 
 	case "put-json":
-		j := source.SourceJSON{}
-		r, err := os.Open(*putJsonFile)
+		j := source.JSON{}
+		r, err := os.Open(*putJSONFile)
 		if err != nil {
 			logrus.WithError(err).Fatal("error while opening file")
 		}

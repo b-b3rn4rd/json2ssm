@@ -48,7 +48,7 @@ func TestSourceJson(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			s := source.SourceJSON{}
+			s := source.JSON{}
 			r, err := s.Flatten(test.r)
 			assert.Equal(t, test.response, r)
 			if err != nil {

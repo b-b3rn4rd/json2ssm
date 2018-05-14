@@ -20,7 +20,9 @@
   ],
   "Exclude": [
     "pkg/source/source_test.go",
-    "pkg/storage/storage_test.go"
+    "pkg/storage/storage_test.go",
+    "vendor",
+    "mocks"
   ],
   "Cyclo": 20,
   "LineLength": 220

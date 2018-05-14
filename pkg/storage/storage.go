@@ -44,6 +44,7 @@ func New(svc ssmiface.SSMAPI, logger *logrus.Logger) *SSMStorage {
 
 func (s *SSMStorage) Export(path string) (interface{}, error) {
 	values := map[string]interface{}{}
+	mx := sync.Mutex{}
 	s.logger.WithField("path", path).Debug("get parameters by path")
 
 	var wg sync.WaitGroup
@@ -81,8 +82,10 @@ func (s *SSMStorage) Export(path string) (interface{}, error) {
 				})
 
 				if err != nil {
-					s.logger.WithField("name", name).WithError(err).Debug("can't get parameter type use string")
+					s.logger.WithField("name", name).WithError(err).Info("can't get parameter type use string")
+					mx.Lock()
 					values[name] = value
+					mx.Unlock()
 				}
 
 				vType := func() string {
@@ -97,6 +100,7 @@ func (s *SSMStorage) Export(path string) (interface{}, error) {
 
 				s.logger.WithField("name", name).Debugf("converting to %s", vType)
 
+				mx.Lock()
 				switch vType {
 				case "bool":
 					values[name], _ = strconv.ParseBool(value)
@@ -107,6 +111,7 @@ func (s *SSMStorage) Export(path string) (interface{}, error) {
 				default:
 					values[name] = value
 				}
+				mx.Unlock()
 
 			}(aws.StringValue(p.Name), aws.StringValue(p.Value))
 		}
@@ -181,12 +186,12 @@ func (s *SSMStorage) unflattern(params map[string]interface{}) (interface{}, err
 
 	for k, v := range params {
 		ks := strings.Split(strings.TrimPrefix(k, "/"), "/")
-		ks_r := make([]string, len(ks))
+		ksr := make([]string, len(ks))
 		for ksi, ksv := range ks {
-			ks_r[len(ks)-(ksi+1)] = ksv
+			ksr[len(ks)-(ksi+1)] = ksv
 		}
 
-		for _, kv := range ks_r {
+		for _, kv := range ksr {
 			if ik, err := strconv.Atoi(kv); err == nil {
 
 				tmp := make([]interface{}, (ik + 1))
@@ -212,7 +217,7 @@ func (s *SSMStorage) Delete(values map[string]interface{}) (int, error) {
 	bar.Output = os.Stderr
 	bar.Start()
 
-	for k, _ := range values {
+	for k := range values {
 		wg.Add(1)
 
 		if i%20 == 0 && i > 0 {

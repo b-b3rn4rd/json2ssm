@@ -1,15 +1,15 @@
-JSON import/export functions with AWS SSM Parameter Store
+[![Go Report Card](https://goreportcard.com/badge/github.com/b-b3rn4rd/json2ssm)](https://goreportcard.com/report/github.com/b-b3rn4rd/json2ssm)  [![Build Status](https://travis-ci.org/b-b3rn4rd/gocfn.svg?branch=master)](https://travis-ci.org/b-b3rn4rd/json2ssm) JSON import/export functions with AWS SSM Parameter Store
 ================================================
-*json2ssm* - provides JSON import and export functionality when working with AWS SSM parameter store while keeping original data types.
+*json2ssm* - provides JSON import, export and delete functionality when working with AWS SSM parameter store while keeping original data types.
 
 Motivation
 --------------
 AWS SSM Parameter Store is a great service for centrally storing and managing application parameters and secrets.
-However, seeding parameters often becomes adhoc process when parameters are added manually
+However, seeding parameters often becomes an adhoc process when parameters are added manually
 or provisioned from different scripts which makes it difficult to promote applications between environments.
 
-Using `json2ssm` parameters can be imported from single or multiple JSON source files, additionally, it also provides export function to recursively retrieve parameters in JSON format for scenarios
-when it's easier to work with JSON structure.
+Using `json2ssm` parameters can be imported from a single or multiple JSON source files, additionally, it also provides export function to recursively retrieve parameters in JSON format for scenarios
+when it's easier to work with JSON structure, for example with Jenkins pipelines or inside ansible playbooks.
 
 Examples
 ----------------
@@ -119,6 +119,17 @@ $ cat rgba.json
 
 Installation
 =============
+```bash
+brew tap b-b3rn4rd/homebrew-tap
+brew install json2ssm
+```
+
+*Using go get*
+
+```bash
+go get github.com/b-b3rn4rd/json2ssm
+```
+
 Usage
 =============
 ```bash
