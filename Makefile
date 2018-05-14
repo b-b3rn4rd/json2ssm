@@ -3,6 +3,7 @@
 ci: install lint test
 
 install:
+	go get -u github.com/golang/dep/cmd/dep
 	dep ensure
 	go get -u gopkg.in/alecthomas/gometalinter.v2
 	gometalinter.v2 --install
