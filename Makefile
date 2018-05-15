@@ -8,8 +8,7 @@ install:
 	go get -u gopkg.in/alecthomas/gometalinter.v2
 	gometalinter.v2 --install
 	go get github.com/axw/gocov/...
-	go get github.com/AlekSi/gocov-xml
-	go get github.com/jstemmer/go-junit-report
+	go get github.com/mattn/goveralls
 .PHONY: install
 
 lint:
@@ -19,6 +18,7 @@ lint:
 
 test:
 	go test -v ./...
+	$GOPATH/bin/goveralls -service=travis-ci
 .PHONY: test
 
 release:
