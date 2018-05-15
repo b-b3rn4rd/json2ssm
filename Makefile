@@ -18,7 +18,7 @@ lint:
 
 test:
 	go test -v ./...
-	$GOPATH/bin/goveralls -service=travis-ci
+	goveralls -service=travis-ci
 .PHONY: test
 
 release:
