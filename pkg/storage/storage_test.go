@@ -152,44 +152,53 @@ func TestImport(t *testing.T) {
 		"1/address/work": "2 flinders",
 		"1/address/home": "2 st kilda rd",
 	}
+
+	msg := "hello world"
+
 	s := &mocks.SSMAPI{}
 
 	putParameterExpectedInput := map[string]*ssm.PutParameterInput{
 		"/0/name": {
-			Name:      aws.String("/0/name"),
-			Value:     aws.String("bernard"),
-			Type:      aws.String(ssm.ParameterTypeString),
-			Overwrite: aws.Bool(true),
+			Name:        aws.String("/0/name"),
+			Value:       aws.String("bernard"),
+			Type:        aws.String(ssm.ParameterTypeString),
+			Overwrite:   aws.Bool(true),
+			Description: aws.String(msg),
 		},
 		"/0/address/work": {
-			Name:      aws.String("/0/address/work"),
-			Value:     aws.String("1 flinders"),
-			Type:      aws.String(ssm.ParameterTypeString),
-			Overwrite: aws.Bool(true),
+			Name:        aws.String("/0/address/work"),
+			Value:       aws.String("1 flinders"),
+			Type:        aws.String(ssm.ParameterTypeString),
+			Overwrite:   aws.Bool(true),
+			Description: aws.String(msg),
 		},
 		"/0/address/home": {
-			Name:      aws.String("/0/address/home"),
-			Value:     aws.String("1 st kilda rd"),
-			Type:      aws.String(ssm.ParameterTypeString),
-			Overwrite: aws.Bool(true),
+			Name:        aws.String("/0/address/home"),
+			Value:       aws.String("1 st kilda rd"),
+			Type:        aws.String(ssm.ParameterTypeString),
+			Overwrite:   aws.Bool(true),
+			Description: aws.String(msg),
 		},
 		"/1/name": {
-			Name:      aws.String("/1/name"),
-			Value:     aws.String("keith"),
-			Type:      aws.String(ssm.ParameterTypeString),
-			Overwrite: aws.Bool(true),
+			Name:        aws.String("/1/name"),
+			Value:       aws.String("keith"),
+			Type:        aws.String(ssm.ParameterTypeString),
+			Overwrite:   aws.Bool(true),
+			Description: aws.String(msg),
 		},
 		"/1/address/work": {
-			Name:      aws.String("/1/address/work"),
-			Value:     aws.String("2 flinders"),
-			Type:      aws.String(ssm.ParameterTypeString),
-			Overwrite: aws.Bool(true),
+			Name:        aws.String("/1/address/work"),
+			Value:       aws.String("2 flinders"),
+			Type:        aws.String(ssm.ParameterTypeString),
+			Overwrite:   aws.Bool(true),
+			Description: aws.String(msg),
 		},
 		"/1/address/home": {
-			Name:      aws.String("/1/address/home"),
-			Value:     aws.String("2 st kilda rd"),
-			Type:      aws.String(ssm.ParameterTypeString),
-			Overwrite: aws.Bool(true),
+			Name:        aws.String("/1/address/home"),
+			Value:       aws.String("2 st kilda rd"),
+			Type:        aws.String(ssm.ParameterTypeString),
+			Overwrite:   aws.Bool(true),
+			Description: aws.String(msg),
 		},
 	}
 
@@ -258,7 +267,7 @@ func TestImport(t *testing.T) {
 
 	logger, _ := test.NewNullLogger()
 	str := storage.New(s, logger)
-	str.Import(values)
+	str.Import(values, msg)
 
 	s.AssertNumberOfCalls(t, "PutParameter", 6)
 	s.AssertNumberOfCalls(t, "AddTagsToResource", 6)

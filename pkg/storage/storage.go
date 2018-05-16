@@ -258,7 +258,7 @@ func (s *SSMStorage) Delete(values map[string]interface{}) (int, error) {
 	return total, delParamError
 }
 
-func (s *SSMStorage) Import(values map[string]interface{}) (int, error) {
+func (s *SSMStorage) Import(values map[string]interface{}, msg string) (int, error) {
 	var wg sync.WaitGroup
 	var putParamError error
 	var i uint32
@@ -287,10 +287,11 @@ func (s *SSMStorage) Import(values map[string]interface{}) (int, error) {
 			s.logger.WithField("name", k).Debug("putting ssm parameter")
 
 			_, err := s.svc.PutParameter(&ssm.PutParameterInput{
-				Name:      aws.String(k),
-				Value:     aws.String(fmt.Sprint(v)),
-				Type:      aws.String(ssm.ParameterTypeString),
-				Overwrite: aws.Bool(true),
+				Name:        aws.String(k),
+				Value:       aws.String(fmt.Sprint(v)),
+				Type:        aws.String(ssm.ParameterTypeString),
+				Overwrite:   aws.Bool(true),
+				Description: aws.String(msg),
 			})
 			if err != nil {
 				putParamError = err

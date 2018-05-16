@@ -134,25 +134,26 @@ Usage
 =============
 ```bash
 $ json2ssm --help
-usage: json2ssm [<flags>] <command> [<args> ...]
-
-Flags:
-      --help     Show context-sensitive help (also try --help-long and --help-man).
-  -d, --debug    Enable debug logging.
-      --version  Show application version.
-
-Commands:
-  help [<command>...]
-    Show help.
-
-  put-json --json-file=JSON-FILE
-    Creates SSM parameters from the specified JSON file.
-
-  get-json --path=PATH
-    Retrieves JSON document from SSM parameter store using given path (prefix).
-
-  del-json --json-file=JSON-FILE
-    Deletes parameters from SSM parameter store based on the specified JSON file.
-
+  usage: json2ssm [<flags>] <command> [<args> ...]
+  
+  Flags:
+        --help     Show context-sensitive help (also try --help-long and
+                   --help-man).
+    -d, --debug    Enable debug logging.
+        --version  Show application version.
+  
+  Commands:
+    help [<command>...]
+      Show help.
+  
+    put-json --json-file=JSON-FILE [<flags>]
+      Creates SSM parameters from the specified JSON file.
+  
+    get-json --path=PATH
+      Retrieves JSON document from SSM parameter store using given path (prefix).
+  
+    del-json --json-file=JSON-FILE
+      Deletes parameters from SSM parameter store based on the specified JSON
+      file.
 
 ```
