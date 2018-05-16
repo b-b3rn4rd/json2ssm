@@ -20,6 +20,7 @@ var (
 	delJSON     = kingpin.Command("del-json", "Deletes parameters from SSM parameter store based on the specified JSON file.")
 	getPath     = getJSON.Flag("path", "SSM parameter store path (prefix)").Required().String()
 	putJSONFile = putJSON.Flag("json-file", "The path where your JSON file is located.").Required().ExistingFile()
+	putJSONMsg  = putJSON.Flag("message", "The additional message used as parameters description.").Short('m').Default("").String()
 	delJSONFile = delJSON.Flag("json-file", "The path where your JSON file is located.").Required().ExistingFile()
 	version     = "master"
 	debug       = kingpin.Flag("debug", "Enable debug logging.").Short('d').Bool()
@@ -87,7 +88,7 @@ func main() {
 			logrus.WithError(err).Fatal("error while flattering")
 		}
 
-		total, err := strg.Import(body)
+		total, err := strg.Import(body, *putJSONMsg)
 		if err != nil {
 			logrus.WithError(err).Fatal("error while importing")
 		}
