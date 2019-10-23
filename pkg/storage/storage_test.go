@@ -130,7 +130,7 @@ func TestExport(t *testing.T) {
 
 	logger, _ := test.NewNullLogger()
 	str := storage.New(s, logger)
-	r, _ := str.Export("/0")
+	r, _ := str.Export("/0", false)
 
 	expected := map[string]interface{}{
 		"name": "bernard",
@@ -267,7 +267,7 @@ func TestImport(t *testing.T) {
 
 	logger, _ := test.NewNullLogger()
 	str := storage.New(s, logger)
-	str.Import(values, msg)
+	str.Import(values, msg, false)
 
 	s.AssertNumberOfCalls(t, "PutParameter", 6)
 	s.AssertNumberOfCalls(t, "AddTagsToResource", 6)

@@ -42,7 +42,7 @@ func New(svc ssmiface.SSMAPI, logger *logrus.Logger) *SSMStorage {
 	}
 }
 
-func (s *SSMStorage) Export(path string) (interface{}, error) {
+func (s *SSMStorage) Export(path string, decrypt bool) (interface{}, error) {
 	values := map[string]interface{}{}
 	mx := sync.Mutex{}
 	s.logger.WithField("path", path).Debug("get parameters by path")
@@ -55,8 +55,9 @@ func (s *SSMStorage) Export(path string) (interface{}, error) {
 	bar.Start()
 
 	err := s.svc.GetParametersByPathPages(&ssm.GetParametersByPathInput{
-		Path:      aws.String(path),
-		Recursive: aws.Bool(true),
+		Path:           aws.String(path),
+		Recursive:      aws.Bool(true),
+		WithDecryption: aws.Bool(decrypt),
 	}, func(page *ssm.GetParametersByPathOutput, lastPage bool) bool {
 		bar.SetTotal(int(bar.Total) + len(page.Parameters))
 
@@ -258,10 +259,17 @@ func (s *SSMStorage) Delete(values map[string]interface{}) (int, error) {
 	return total, delParamError
 }
 
-func (s *SSMStorage) Import(values map[string]interface{}, msg string) (int, error) {
+func (s *SSMStorage) Import(values map[string]interface{}, msg string, encrypt bool) (int, error) {
 	var wg sync.WaitGroup
 	var putParamError error
 	var i uint32
+	var paramType string
+
+	if encrypt {
+		paramType = ssm.ParameterTypeSecureString
+	} else {
+		paramType = ssm.ParameterTypeString
+	}
 
 	total := len(values)
 
@@ -289,7 +297,7 @@ func (s *SSMStorage) Import(values map[string]interface{}, msg string) (int, err
 			_, err := s.svc.PutParameter(&ssm.PutParameterInput{
 				Name:        aws.String(k),
 				Value:       aws.String(fmt.Sprint(v)),
-				Type:        aws.String(ssm.ParameterTypeString),
+				Type:        aws.String(paramType),
 				Overwrite:   aws.Bool(true),
 				Description: aws.String(msg),
 			})
