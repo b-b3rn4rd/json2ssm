@@ -19,8 +19,10 @@ var (
 	getJSON     = kingpin.Command("get-json", "Retrieves JSON document from SSM parameter store using given path (prefix).")
 	delJSON     = kingpin.Command("del-json", "Deletes parameters from SSM parameter store based on the specified JSON file.")
 	getPath     = getJSON.Flag("path", "SSM parameter store path (prefix)").Required().String()
+	getDecrypt  = getJSON.Flag("decrypt", "Decrypt secure strings").Default("false").Bool()
 	putJSONFile = putJSON.Flag("json-file", "The path where your JSON file is located.").Required().ExistingFile()
 	putJSONMsg  = putJSON.Flag("message", "The additional message used as parameters description.").Short('m').Default("").String()
+	putEncrypt  = putJSON.Flag("encrypt", "Encrypt all values with Secure String").Default("false").Bool()
 	delJSONFile = delJSON.Flag("json-file", "The path where your JSON file is located.").Required().ExistingFile()
 	version     = "master"
 	debug       = kingpin.Flag("debug", "Enable debug logging.").Short('d').Bool()
@@ -68,7 +70,7 @@ func main() {
 		fmt.Fprintf(writer, "\nDeletion has successfully finished, %d parameters have been removed from SSM parameter store. \n", total)
 
 	case "get-json":
-		values, err := strg.Export(*getPath)
+		values, err := strg.Export(*getPath, *getDecrypt)
 		if err != nil {
 			logrus.WithError(err).Fatal("error while exporting")
 		}
@@ -88,7 +90,7 @@ func main() {
 			logrus.WithError(err).Fatal("error while flattering")
 		}
 
-		total, err := strg.Import(body, *putJSONMsg)
+		total, err := strg.Import(body, *putJSONMsg, *putEncrypt)
 		if err != nil {
 			logrus.WithError(err).Fatal("error while importing")
 		}

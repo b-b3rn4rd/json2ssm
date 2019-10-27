@@ -146,10 +146,10 @@ $ json2ssm --help
     help [<command>...]
       Show help.
   
-    put-json --json-file=JSON-FILE [<flags>]
+    put-json --json-file=JSON-FILE --encrypt [<flags>]
       Creates SSM parameters from the specified JSON file.
   
-    get-json --path=PATH
+    get-json --path=PATH --decrypt
       Retrieves JSON document from SSM parameter store using given path (prefix).
   
     del-json --json-file=JSON-FILE
